@@ -1,6 +1,7 @@
 import { DirectoryLoader } from "langchain/document_loaders/fs/directory";
 import { TextLoader } from "langchain/document_loaders/fs/text";
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
+import { HuggingFaceTransformersEmbeddings } from "@langchain/community/embeddings/huggingface_transformers";
 import { ChromaClient } from "chromadb";
 
 
@@ -56,13 +57,20 @@ export class TherapyDataIngestion {
             const collection = await client.getOrCreateCollection({
                 name: "therapy_collection",
             });
+
+            const model = new HuggingFaceTransformersEmbeddings({ 
+                model: 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1' 
+            });
+            console.log("Model loaded successfully!");
             
             for (const[index, doc] of splitDocs.entries()) {
+                const vector = await model.embedQuery(doc.pageContent);
                 await collection.add({
                     ids: [`doc-${index}`],
                     documents: [doc.pageContent],
+                    embeddings: [vector],
                     metadatas: [{
-                        source: "cbt_content",
+                        source: "cbt_content.pdf",
                         chunk_id: index
                     }]
                 })

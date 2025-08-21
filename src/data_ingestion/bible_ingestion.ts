@@ -1,5 +1,6 @@
 import { PDFLoader  } from "@langchain/community/document_loaders/fs/pdf";
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
+import { HuggingFaceTransformersEmbeddings } from "@langchain/community/embeddings/huggingface_transformers";
 import { ChromaClient } from "chromadb";
 export class BibleIngestion {
     async ingest_data() {
@@ -31,16 +32,23 @@ export class BibleIngestion {
 
             console.log(`Data split successfully! Chunks created: ${splitDocs.length}`);
 
-            // 3. Create vector store and add documents
+            // 3. Create vector store, embeddings and add documents
             console.log("Creating vector store and embedding documents...");
             const collection = await client.getOrCreateCollection({
                 name: "bible_collection",
             });
+
+            const model = new HuggingFaceTransformersEmbeddings({ 
+                model: 'sentence-transformers/all-MiniLM-L6-v2' 
+            });
+            console.log("Model loaded successfully!");
             
             for (const[index, doc] of splitDocs.entries()) {
+                const vector = await model.embedQuery(doc.pageContent);
                 await collection.add({
                     ids: [`doc-${index}`],
                     documents: [doc.pageContent],
+                    embeddings: [vector],
                     metadatas: [{
                         source: "kjv.pdf",
                         chunk_id: index

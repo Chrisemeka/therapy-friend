@@ -5,7 +5,7 @@ export const checkBibleVectorDB = async () => {
     try {
         const client = new ChromaClient();
         const collection = await client.getCollection({
-            name: "bible-collection"
+            name: "bible_collection"
         });
         const count = await collection.count();
         return count > 0;
@@ -19,7 +19,7 @@ export const checkTherapyVectorDB = async () => {
     try {
         const client = new ChromaClient();
         const collection = await client.getCollection({
-            name: "therapy-collection"
+            name: "therapy_collection"
         });
         const count = await collection.count();
         return count > 0;
