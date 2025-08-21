@@ -1,4 +1,3 @@
-/* This is where the indexing process takes place. The data will be loaded, split into chunks and stored in a vector database */
 import { DirectoryLoader } from "langchain/document_loaders/fs/directory";
 import { TextLoader } from "langchain/document_loaders/fs/text";
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
