@@ -43,11 +43,9 @@ export class BibleIngestion {
             const vectorStore = new Chroma(embeddings, {
                 collectionName: "bible-collection",
             });
-
             const ids = splitDocs.map((_, index) => `doc-${index}`);
-
             await vectorStore.addDocuments(splitDocs, {ids});
-
+            
             console.log("Data successfully embedded and stored in vector database!");
             return { success: true, documentsProcessed: splitDocs.length };
 
@@ -74,11 +72,7 @@ export class BibleIngestion {
             });
 
             const results = await vectorStore.similaritySearch(query, topK);
-
-            console.log("Documents retrieved successfully!");
             return results
-
-
         } catch (error) {
             console.error("Error during vector search:", error);
             throw error;
