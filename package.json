@@ -18,14 +18,15 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "@chroma-core/default-embed": "^0.1.8",
     "@huggingface/transformers": "^3.7.2",
     "@langchain/community": "^0.3.51",
     "@langchain/core": "^0.3.71",
     "@langchain/mongodb": "^0.1.0",
     "@types/express": "^5.0.3",
+    "chromadb": "^3.0.14",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
-    "mongodb": "^6.18.0",
     "pdf-parse": "^1.1.1"
   }
 }
