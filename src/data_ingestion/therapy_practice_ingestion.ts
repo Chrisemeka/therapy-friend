@@ -1,13 +1,15 @@
 import { DirectoryLoader } from "langchain/document_loaders/fs/directory";
 import { TextLoader } from "langchain/document_loaders/fs/text";
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { HuggingFaceTransformersEmbeddings } from "@langchain/community/embeddings/huggingface_transformers";
-import { Chroma } from "@langchain/community/vectorstores/chroma";
+import { ChromaClient } from "chromadb";
+
 
 import path from "path";
 
 export class TherapyDataIngestion {
     async ingest_data() {
+        const client = new ChromaClient();
+
         try {
             // 1. Loading multiple text files from CBT data directory
             console.log("Loading Therapy data files...");
@@ -48,20 +50,23 @@ export class TherapyDataIngestion {
 
             const splitDocs = await textSplitter.splitDocuments(docsWithMetadata);
             console.log(`Data split successfully! Chunks created: ${splitDocs.length}`);
-                
-            // 3. Initialize the embedding model
-            console.log("Initializing embedding model...");
-            const embeddings = new HuggingFaceTransformersEmbeddings({
-                model: 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1'
-            });
 
-            // 4 . Create vector store and add documents
+            // 3. Create vector store and add documents
             console.log("Creating vector store and embedding documents...");
-            const vectorStore = new Chroma(embeddings, {
-                collectionName: "therapy-collection",
+            const collection = await client.getOrCreateCollection({
+                name: "therapy_collection",
             });
-            const ids = splitDocs.map((_, index) => `doc-${index}`);
-            await vectorStore.addDocuments(splitDocs, {ids});
+            
+            for (const[index, doc] of splitDocs.entries()) {
+                await collection.add({
+                    ids: [`doc-${index}`],
+                    documents: [doc.pageContent],
+                    metadatas: [{
+                        source: "cbt_content",
+                        chunk_id: index
+                    }]
+                })
+            }
 
             console.log("Data successfully embedded and stored in vector database!");
             return { success: true, documentsProcessed: splitDocs.length };
@@ -74,23 +79,17 @@ export class TherapyDataIngestion {
 
     async vector_search(query: string, topK = 10) {
         try {
-            // 1. Generate embedding for the search query
-            console.log("Generating embedding for query:", query);
-            const embeddings = new HuggingFaceTransformersEmbeddings({ 
-                model: 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1' 
-            });
-            
-            const queryEmbedding = await embeddings.embedQuery(query);
-            console.log("Query embedding generated, dimension:", queryEmbedding.length);
-
-            //2. Retrieve the ChromaDb
-            const vectorStore = new Chroma(embeddings, {
-                collectionName: "therapy-collection",
+            const client = new ChromaClient();
+            //1. Retrieve the ChromaDb
+            const collection = await client.getOrCreateCollection({
+                name: "therapy_collection",
             });
 
-            const results = await vectorStore.similaritySearch(query, topK);
+            const results = await collection.query({
+                queryTexts: [query],
+                nResults: topK,
+            })
             return results
-
         } catch (error) {
             console.error("Error during vector search:", error);
             throw error;

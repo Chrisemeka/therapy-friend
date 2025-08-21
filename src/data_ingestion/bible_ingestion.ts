@@ -1,12 +1,11 @@
 import { PDFLoader  } from "@langchain/community/document_loaders/fs/pdf";
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { HuggingFaceTransformersEmbeddings } from "@langchain/community/embeddings/huggingface_transformers";
-import { Chroma } from "@langchain/community/vectorstores/chroma";
-
+import { ChromaClient } from "chromadb";
 export class BibleIngestion {
     async ingest_data() {
         try {
-           
+           const client = new ChromaClient();
+
             // 1. Loading the PDF file
             console.log("Loading Bible PDF file...");
             const pdfPath = "./data/kjv.pdf"; // PDF file path
@@ -32,19 +31,22 @@ export class BibleIngestion {
 
             console.log(`Data split successfully! Chunks created: ${splitDocs.length}`);
 
-            // 3. Initailize the embeddings model
-            console.log("Initializing embeddings models...");
-            const embeddings = new HuggingFaceTransformersEmbeddings({ 
-                model: 'sentence-transformers/all-MiniLM-L6-v2' 
-            })
-
-            // 4. Create vector store and add documents
+            // 3. Create vector store and add documents
             console.log("Creating vector store and embedding documents...");
-            const vectorStore = new Chroma(embeddings, {
-                collectionName: "bible-collection",
+            const collection = await client.getOrCreateCollection({
+                name: "bible_collection",
             });
-            const ids = splitDocs.map((_, index) => `doc-${index}`);
-            await vectorStore.addDocuments(splitDocs, {ids});
+            
+            for (const[index, doc] of splitDocs.entries()) {
+                await collection.add({
+                    ids: [`doc-${index}`],
+                    documents: [doc.pageContent],
+                    metadatas: [{
+                        source: "kjv.pdf",
+                        chunk_id: index
+                    }]
+                })
+            }
             
             console.log("Data successfully embedded and stored in vector database!");
             return { success: true, documentsProcessed: splitDocs.length };
@@ -57,21 +59,16 @@ export class BibleIngestion {
 
     async vector_search(query: string, topK = 10) {
         try {
-            // 1. Generate embedding for the search query
-            console.log("Generating embedding for query:", query);
-            const embeddings = new HuggingFaceTransformersEmbeddings({ 
-                model: 'sentence-transformers/all-MiniLM-L6-v2' 
-            });
-            
-            const queryEmbedding = await embeddings.embedQuery(query);
-            console.log("Query embedding generated, dimension:", queryEmbedding.length);
-
-            //2. Retrieve the ChromaDb
-            const vectorStore = new Chroma(embeddings, {
-                collectionName: "bible-collection",
+           const client = new ChromaClient();
+            //1. Retrieve the ChromaDb
+            const collection = await client.getOrCreateCollection({
+                name: "bible_collection",
             });
 
-            const results = await vectorStore.similaritySearch(query, topK);
+            const results = await collection.query({
+                queryTexts: [query],
+                nResults: topK,
+            })
             return results
         } catch (error) {
             console.error("Error during vector search:", error);
